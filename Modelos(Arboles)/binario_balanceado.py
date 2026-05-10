@@ -117,3 +117,47 @@ class ArbolAVL:
         self._postorden(nodo.izq)
         self._postorden(nodo.der)
         print(nodo.val)
+
+
+    def buscar(self, valor):
+        if self.raiz:
+            self._buscar(self.raiz, valor)
+
+    def _buscar(self, nodo, valor):
+        if nodo:
+            if nodo.val == valor:
+                return nodo.val, nodo.altura, nodo.prev
+            self._buscar(nodo.izq, valor)
+            self._buscar(nodo.der, valor)
+
+
+    def eliminar(self, valor):
+        if self.raiz:
+            self._eliminar(self.raiz, valor)
+
+    def _eliminar(self, nodo, valor):
+        if nodo:
+            if valor < nodo.val:
+                return self._eliminar(nodo.izq, valor)
+            if valor > nodo.val:
+                return self._eliminar(nodo.der, valor)
+
+            if not nodo.der:
+                self.rebal()
+                return nodo.izq
+            if not nodo.izq:
+                self.rebal()
+                return nodo.der
+
+            sucesor = self.min(nodo.der)
+            nodo.valor = sucesor.valor
+            nodo.der = self._eliminar(nodo.der, sucesor.valor)
+            self.rebal()
+            return nodo
+
+        return False
+
+    def min(self, nodo):
+        if nodo.izq:
+            return self.min(nodo.izq)
+        return nodo
