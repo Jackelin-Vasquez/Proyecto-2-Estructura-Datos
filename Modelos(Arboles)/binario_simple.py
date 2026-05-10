@@ -8,8 +8,9 @@ class Nodo:
 
 
 class ArbolSimple:
-    def __init__(self, raiz):
-        self.raiz = raiz
+    def __init__(self, nombre):
+        self.raiz = None
+        self.nombre = nombre
         self.altura_max = 0
 
     def agregar(self, val):

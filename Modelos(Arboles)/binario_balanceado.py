@@ -6,8 +6,10 @@ class Nodo:
         self.altura = 0
 
 class ArbolAVL:
-    def __init__(self):
+    def __init__(self, nombre):
         self.raiz = None
+        self.nombre = nombre
+        self.altura_max = 0
 
     def altura(self, nodo):
         if nodo is None:
