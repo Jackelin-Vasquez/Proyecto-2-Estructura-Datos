@@ -127,3 +127,30 @@ class ArbolSimple:
         if nodo.der.der:
             return self.p_der(nodo.der, d + 1)
         return nodo.der.val if nodo.der else nodo, nodo if nodo.der else None, d
+
+    def convertir_a_dict(self):
+        fila_total = []
+        fila = []
+        if not self.raiz:
+            return None
+
+        new_fila = self._convertir(fila, fila_total)
+        conv_fila = []
+        for nod in new_fila:
+            nodo = {
+                'val': nod.val
+            }
+            conv_fila.append(nodo)
+        return dict(conv_fila)
+
+    def _convertir(self, fila, m_fila):
+        cant = len(fila)
+        if cant == 0:
+            return m_fila
+        while cant > 0:
+            c_node = fila.pop(0)
+            fila.append(c_node.izq)
+            m_fila.append(c_node.izq)
+            fila.append(c_node.der)
+            m_fila.append(c_node.der)
+        return self._convertir(fila, m_fila)

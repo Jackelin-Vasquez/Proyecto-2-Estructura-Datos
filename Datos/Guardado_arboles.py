@@ -1,3 +1,6 @@
+"""
+
+"""
 class ArbolesRaw:
     """
     SOLO SE DEBE LLAMAR A ESTA CLASE UNA VEZ EN TO-DO EL SISTEMA.
@@ -9,6 +12,49 @@ class ArbolesRaw:
         self.binario_n = {}
         self.binario_ABB = {}
         self.binario_AVB = {}
+
+    def bn_covert(self, name):
+        if not any(k_name == name for k_name in self.conv_origin.binario_n.keys()):
+            return False
+
+        obj_instance = self.conv_origin.binario_n[name]
+        n_list = obj_instance.convertir_a_dict()
+
+        self.binario_n[name] = {
+            "nombre": obj_instance.nombre,
+            "altura": obj_instance.altura,
+            "valores": n_list
+        }
+        return True
+
+    def bABB_covert(self, name):
+        if not any(k_name == name for k_name in self.conv_origin.binario_ABB.keys()):
+            return False
+
+        obj_instance = self.conv_origin.binario_ABB[name]
+        n_list = obj_instance.convertir_a_dict()
+
+        self.binario_ABB[name] = {
+            "nombre": obj_instance.nombre,
+            "altura": obj_instance.altura,
+            "valores": n_list
+        }
+        return True
+
+    def bAVB_covert(self, name):
+        if not any(k_name == name for k_name in self.conv_origin.binario_AVB.keys()):
+            return False
+
+        obj_instance = self.conv_origin.binario_AVB[name]
+        n_list = obj_instance.convertir_a_dict()
+
+        self.binario_AVB[name] = {
+            "nombre": obj_instance.nombre,
+            "altura": obj_instance.altura,
+            "valores": n_list
+        }
+        return True
+
 
 
 class ArbolesConv:
