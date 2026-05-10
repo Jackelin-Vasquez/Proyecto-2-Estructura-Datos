@@ -1,5 +1,7 @@
+import json
 """
-
+    TODO sistema de guardado de JSON para cada tipo de árbol
+    TODO sistema de conversión de los arbolitos
 """
 class ArbolesRaw:
     """
@@ -54,6 +56,43 @@ class ArbolesRaw:
             "valores": n_list
         }
         return True
+
+
+    def bn_save(self):
+        for bn_tree in self.conv_origin.binario_n.keys():
+            self.bn_covert(bn_tree)
+
+        with open('binario_simple.json', 'w', encoding='utf-8') as c:
+            json.dump(self.binario_n, c, ensure_ascii=False, indent=4)
+
+        return True
+
+    def bABB_save(self):
+        for bABB_tree in self.conv_origin.binario_ABB.keys():
+            self.bABB_covert(bABB_tree)
+
+        with open('binario_busqueda.json', 'w', encoding='utf-8') as c:
+            json.dump(self.binario_ABB, c, ensure_ascii=False, indent=4)
+        return True
+
+    def bAVB_save(self):
+        for bAVB_tree in self.conv_origin.binario_AVB.keys():
+            self.bAVB_covert(bAVB_tree)
+
+        with open('binario_balanceado.json', 'w', encoding='utf-8') as c:
+            json.dump(self.binario_AVB, c, ensure_ascii=False, indent=4)
+        return True
+
+
+    def load(self):
+        with open('binario_simple.json', 'r', encoding='utf-8') as c:
+            self.binario_n = json.load(c)
+
+        with open('binario_busqueda.json', 'r', encoding='utf-8') as c:
+            self.binario_ABB = json.load(c)
+
+        with open('binario_balanceado.json', 'r', encoding='utf-8') as c:
+            self.binario_AVB = json.load(c)
 
 
 
