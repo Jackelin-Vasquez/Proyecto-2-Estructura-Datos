@@ -159,15 +159,39 @@ class ArbolesLogin(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    def ejecutar_redireccion(nombre_usuario):
-        if MenuPrincipal:
-            global main_win
-            main_win.show()
+    try:
+        from Datos.Guardado_arboles import ArbolesRaw, ArbolesConv
+
+        # Estas son las instancias (llamamos a las clases)
+        raw_engine = ArbolesRaw()
+        conv_engine = ArbolesConv()
+
+        raw_engine.conv_origin = conv_engine
+        conv_engine.raw_origin = raw_engine
+
+        try:
+            raw_engine.load()
+            conv_engine.bABB_dump()
+            conv_engine.bAVB_dump()
+        except Exception as e:
+            print(f"Aviso: No se cargaron JSON: {e}")
+
+    except ImportError as e:
+        print(f"Error: No se encontradon datos {e}")
+        sys.exit(1)
+
+    def abrir_menu(usuario):
+        global win_principal
+        try:
+            win_principal = MenuPrincipal(usuario, raw_engine, conv_engine)
+            win_principal.show()
             login_win.close()
-        else:
-            print("Error: No se encontró la clase MenuPrincipal en ventana_principal.py")
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(None, "Error Crítico", f"No se pudo iniciar el menú:\n{e}")
 
 
-    login_win = ArbolesLogin(auth=None, on_login_exitoso=ejecutar_redireccion)
+    login_win = ArbolesLogin(auth=None, on_login_exitoso=abrir_menu)
     login_win.show()
     sys.exit(app.exec())
