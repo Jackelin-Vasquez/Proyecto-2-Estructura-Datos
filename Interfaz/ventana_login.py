@@ -1,10 +1,13 @@
 import sys
 import os
-# Se mantienen las importaciones necesarias de PyQt6
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QBrush, QImage, QPixmap
 
+try:
+    from ventana_principal import MenuPrincipal
+except ImportError:
+    MenuPrincipal = None
 
 class ArbolesLogin(QWidget):
     def __init__(self, auth, on_login_exitoso):
@@ -20,7 +23,6 @@ class ArbolesLogin(QWidget):
 
         self.setMinimumSize(1000, 700)
         self.showMaximized()
-
         self.setup_ui()
 
     def resizeEvent(self, event):
@@ -28,8 +30,7 @@ class ArbolesLogin(QWidget):
         super().resizeEvent(event)
 
     def actualizar_fondo(self):
-        ruta_fondo = os.path.join(self.carpeta_recursos, ""
-                                                         "fono.png")
+        ruta_fondo = os.path.join(self.carpeta_recursos, "fono.png")
         if os.path.exists(ruta_fondo):
             oImage = QImage(ruta_fondo)
             sImage = oImage.scaled(
@@ -46,7 +47,6 @@ class ArbolesLogin(QWidget):
 
     def setup_ui(self):
         self.setStyleSheet("color: white; font-family: 'Segoe UI', Arial;")
-
         main_layout = QVBoxLayout(self)
         main_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -72,7 +72,8 @@ class ArbolesLogin(QWidget):
 
         if os.path.exists(ruta_logo):
             img_logo = QImage(ruta_logo)
-            scaled_logo = img_logo.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            scaled_logo = img_logo.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio,
+                                          Qt.TransformationMode.SmoothTransformation)
             logo_label.setPixmap(QPixmap.fromImage(scaled_logo))
         else:
             logo_label.setText("LOGO") # Texto provisional
@@ -147,29 +148,26 @@ class ArbolesLogin(QWidget):
     def intentar_login(self):
         usuario = self.user_input.text().strip()
         contra = self.pass_input.text()
-
         # CREDENCIALES QUEMADAS
-        USER_ADMIN = "admin"
-        PASS_ADMIN = "1234"
-
-        if usuario == USER_ADMIN and contra == PASS_ADMIN:
+        if usuario == "admin" and contra == "1234":
             QMessageBox.information(self, "Éxito", f"Acceso concedido. ¡Bienvenido {usuario}!")
-            self.on_login_exitoso()
+            self.on_login_exitoso(usuario)
         else:
             QMessageBox.critical(self, "Error", "Usuario o contraseña incorrectos.\n")
 
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    class MockAuth:
-        def __init__(self):
-            self.admin = type('obj', (object,), {'nombre': 'Admin'})
 
-    auth_service = MockAuth()
+    def ejecutar_redireccion(nombre_usuario):
+        if MenuPrincipal:
+            global main_win
+            main_win.show()
+            login_win.close()
+        else:
+            print("Error: No se encontró la clase MenuPrincipal en ventana_principal.py")
 
-    def login_completado():
-        print("Login correcto.")
-        sys.exit()
 
-    login_win = ArbolesLogin(auth_service, login_completado)
+    login_win = ArbolesLogin(auth=None, on_login_exitoso=ejecutar_redireccion)
     login_win.show()
     sys.exit(app.exec())
