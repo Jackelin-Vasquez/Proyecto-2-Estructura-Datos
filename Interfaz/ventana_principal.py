@@ -2,6 +2,27 @@ import sys
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,QLabel, QFrame, QLineEdit, QStackedWidget, QMessageBox)
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont
+from io import StringIO
+from contextlib import contextmanager
+
+@contextmanager
+def capturar_print():
+    """Esto ayuda a capturar los print, nos va a servir par amostrar los reccorrido ya que los metodos
+    soo muestran print :("""
+    old_stdout = sys.stdout
+    captured_output = StringIO()
+    sys.stdout = captured_output
+    try:
+        yield captured_output
+    finally:
+        sys.stdout = old_stdout
+
+def ejecutar_con_captura(funcion, *args, **kwargs):
+    """Ejecuta la funcion anterior y captura todos sus prints"""
+    with capturar_print() as output:
+        resultado = funcion(*args, **kwargs)
+        texto_capturado = output.getvalue()
+    return resultado, texto_capturado
 
 class CapaDibujo(QWidget):
     def __init__(self, obtener_arbol_callback):
@@ -83,6 +104,7 @@ class MenuPrincipal(QWidget):
         self.usuario = usuario
         self.raw = raw
         self.conv = conv
+        self.labels_recorrido = {}
 
         self.setWindowTitle("Tree System - Panel de Control")
         self.setMinimumSize(1100, 700)
@@ -196,6 +218,19 @@ class MenuPrincipal(QWidget):
 
         layout.addLayout(controles_layout)
 
+        # seccion de recorrido
+        recorrido_container = QHBoxLayout()
+        recorrido_container.addStretch()
+
+        lbl_resultado = QLabel("")
+        lbl_resultado.setStyleSheet(
+            "font-size: 14px; color: #333; font-weight: bold; margin-top: 10px; margin-bottom: 10px;")
+
+        self.labels_recorrido[tipo_arbol] = lbl_resultado
+        recorrido_container.addWidget(lbl_resultado)
+
+        layout.addLayout(recorrido_container)
+
         # CAPA DE DIBUJO
         capa = CapaDibujo(lambda: self._obtener_arbol(tipo_arbol, f"Tree_{self.usuario}"))
         layout.addWidget(capa, 1)
@@ -283,15 +318,25 @@ class MenuPrincipal(QWidget):
     def accion_recorrido(self, tipo, modo):
         arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
         if arbol and arbol.raiz:
-            print(f"\n--- Recorrido {modo.upper()} ({tipo}) ---")
-            if modo == "pre":
-                arbol.preorden()
-            elif modo == "in":
-                arbol.inorden()
-            elif modo == "post":
-                arbol.postorden()
+            # Mapeo de nombres para el prefijo
+            nombres_modo = {"pre": "Preorden", "in": "Inorden", "post": "Postorden"}
+
+            metodos = {
+                "pre": arbol.preorden,
+                "in": arbol.inorden,
+                "post": arbol.postorden}
+
+            # Capturamos la salida
+            _, texto_recorrido = ejecutar_con_captura(metodos[modo])
+
+            texto_limpio = texto_recorrido.strip().replace("\n", " > ")
+            formato_final = f"{nombres_modo[modo]}: {texto_limpio}"
+
+            # Actualizamos el Label de la página actual
+            self.labels_recorrido[tipo].setText(formato_final)
+
         else:
-            QMessageBox.information(self, "Aviso", "Árbol vacío.")
+            self.labels_recorrido[tipo].setText("Árbol vacío")
 
     def accion_buscar(self, line_edit, tipo):
         texto = line_edit.text().strip()
