@@ -15,7 +15,7 @@ class ArbolesLogin(QWidget):
         self.auth = auth
         self.on_login_exitoso = on_login_exitoso
 
-        self.setWindowTitle("Mundo Comic - Catálogo Virtual")
+        self.setWindowTitle("Login de Arboles")
 
         # Configuración de rutas de Recursos
         self.ruta_script = os.path.dirname(os.path.abspath(__file__))
@@ -162,7 +162,7 @@ if __name__ == "__main__":
     try:
         from Datos.Guardado_arboles import ArbolesRaw, ArbolesConv
 
-        # Estas son las instancias (llamamos a las clases)
+        # Eaqui es donde llamamos a las clases
         raw_engine = ArbolesRaw()
         conv_engine = ArbolesConv()
 
@@ -171,10 +171,11 @@ if __name__ == "__main__":
 
         try:
             raw_engine.load()
+            conv_engine.bn_dump()
             conv_engine.bABB_dump()
             conv_engine.bAVB_dump()
-        except Exception as e:
-            print(f"Aviso: No se cargaron JSON: {e}")
+        except FileNotFoundError:
+            print("No hay archivos previos, iniciando limpio.")
 
     except ImportError as e:
         print(f"Error: No se encontradon datos {e}")
@@ -189,8 +190,7 @@ if __name__ == "__main__":
         except Exception as e:
             import traceback
             traceback.print_exc()
-            QMessageBox.critical(None, "Error Crítico", f"No se pudo iniciar el menú:\n{e}")
-
+            QMessageBox.critical(None, "Error", f"No se pudo cargar el menú: {e}")
 
     login_win = ArbolesLogin(auth=None, on_login_exitoso=abrir_menu)
     login_win.show()
