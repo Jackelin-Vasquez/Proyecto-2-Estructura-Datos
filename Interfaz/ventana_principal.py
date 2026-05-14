@@ -294,29 +294,53 @@ class MenuPrincipal(QWidget):
             QMessageBox.information(self, "Aviso", "Árbol vacío.")
 
     def accion_buscar(self, line_edit, tipo):
+        texto = line_edit.text().strip()
+        if not texto:
+            return
+
         try:
-            val = int(line_edit.text().strip())
+            val = int(texto)
             arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
-            if arbol and arbol.buscar(val):
-                QMessageBox.information(self, "Resultado", f"El valor {val} EXISTE en el árbol.")
+            resultado = arbol.buscar(val)
+
+            if resultado:
+                # aquie es donde se recibe lo de valor y alturam :D
+                valor_enc, altura_enc = resultado
+                QMessageBox.information(
+                    self,
+                    "Nodo Encontrado",
+                    f"Valor: {valor_enc}\nAltura en el árbol: {altura_enc}")
             else:
-                QMessageBox.warning(self, "Resultado", f"El valor {val} NO existe.")
+                QMessageBox.warning(self, "No encontrado", f"El valor {val} no existe en el árbol.")
+
         except ValueError:
-            pass
+            QMessageBox.critical(self, "Error", "Por favor, ingrese un número entero.")
 
     def accion_eliminar(self, line_edit, tipo):
+        texto = line_edit.text().strip()
+        if not texto:
+            return
         try:
-            val = int(line_edit.text().strip())
+            val = int(texto)
             arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
+
             if arbol:
                 arbol.eliminar(val)
+                #Guardar cambios
                 if tipo == "simple":
                     self.raw.bn_save()
                 elif tipo == "busqueda":
                     self.raw.bABB_save()
                 elif tipo == "avl":
                     self.raw.bAVB_save()
+
+                #Se actualiza interfaz
                 self._refrescar_canvas(tipo)
                 line_edit.clear()
+            else:
+                QMessageBox.warning(self, "Aviso", "El árbol no existe.")
+
         except ValueError:
-            pass
+            QMessageBox.warning(self, "Error", "Por favor, ingrese un número válido.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error en Eliminación",f"El motor del árbol falló:\n{str(e)}\n.")
