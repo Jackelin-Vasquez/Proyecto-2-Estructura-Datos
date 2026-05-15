@@ -346,6 +346,9 @@ class MenuPrincipal(QWidget):
         try:
             val = int(texto)
             arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
+            if not arbol:
+                QMessageBox.warning(self, "Aviso", "El árbol no existe.")
+                return
             resultado = arbol.buscar(val)
 
             if resultado:
