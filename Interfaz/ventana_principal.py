@@ -1,6 +1,6 @@
 import sys
-from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,QLabel, QFrame, QLineEdit, QStackedWidget, QMessageBox)
-from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,QFrame, QLineEdit, QStackedWidget, QMessageBox, QScrollArea)
+from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont
 from io import StringIO
 from contextlib import contextmanager
@@ -28,6 +28,22 @@ class CapaDibujo(QWidget):
     def __init__(self, obtener_arbol_callback):
         super().__init__()
         self.obtener_arbol = obtener_arbol_callback
+        # Tamaño inicial para que la area del scroll no lo oculte
+        self.setMinimumSize(800, 500)
+
+    def actualizar_tamano(self):
+        arbol = self.obtener_arbol()
+        if not arbol or not arbol.raiz:
+            self.setFixedSize(800, 500)
+            return
+
+        profundidad = self._obtener_profundidad(arbol.raiz)
+
+        # usemos un ancho base, para que crezca de forma normal xd.
+        ancho_necesario = max(1000, profundidad * 250)
+        alto_necesario = max(600, (profundidad + 1) * 100)
+
+        self.setFixedSize(ancho_necesario, alto_necesario)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -61,7 +77,7 @@ class CapaDibujo(QWidget):
             y = i * 80
             # Línea horizontal gris
             painter.setPen(QPen(QColor("#cccccc"), 1))
-            painter.drawLine(250, y, self.width() - 50, y)
+            painter.drawLine(150, y, self.width() - 50, y)
 
             # Etiquetas de nivel
             texto_nivel = "Raíz - 1" if i == 1 else str(i)
@@ -186,7 +202,6 @@ class MenuPrincipal(QWidget):
         input_val = QLineEdit()
         input_val.setPlaceholderText("Valor...")
         input_val.setFixedWidth(120)
-        # IMPORTANTE: Forzamos color negro para que el texto sea visible
         input_val.setStyleSheet(
             "border-radius: 10px; border: 1px solid #999; padding: 5px; background: white; color: black;")
 
@@ -231,9 +246,15 @@ class MenuPrincipal(QWidget):
 
         layout.addLayout(recorrido_container)
 
+        # --- ARREGLO DEL SCROLL AREA ---
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(False)  # Dsto para que respete el tamaño del cava
+        scroll_area.setStyleSheet("background-color: white; border: 1px solid #ccc; border-radius: 10px;")
+
         # CAPA DE DIBUJO
         capa = CapaDibujo(lambda: self._obtener_arbol(tipo_arbol, f"Tree_{self.usuario}"))
-        layout.addWidget(capa, 1)
+        scroll_area.setWidget(capa)
+        layout.addWidget(scroll_area, 1)
 
         if tipo_arbol == "simple":
             self.canvas_simple = capa
@@ -264,6 +285,12 @@ class MenuPrincipal(QWidget):
         if tipo == "busqueda": return self.conv.bABB_search(nombre)
         if tipo == "avl": return self.conv.bAVB_search(nombre)
         return None
+
+    def _refrescar_canvas(self, tipo):
+        canvas = getattr(self, f"canvas_{tipo}", None)
+        if canvas:
+            canvas.actualizar_tamano()  # Primero ajustamos el widget
+            canvas.update()  # Luego se pinta :D
 
     def accion_insertar(self, line_edit, tipo):
         texto = line_edit.text().strip()
@@ -307,14 +334,6 @@ class MenuPrincipal(QWidget):
         except ValueError:
             QMessageBox.warning(self, "Error", "Ingrese un número entero.")
 
-    def _refrescar_canvas(self, tipo):
-        if tipo == "simple":
-            self.canvas_simple.update()
-        elif tipo == "busqueda":
-            self.canvas_busqueda.update()
-        elif tipo == "avl":
-            self.canvas_avl.update()
-
     def accion_recorrido(self, tipo, modo):
         arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
         if arbol and arbol.raiz:
@@ -347,17 +366,10 @@ class MenuPrincipal(QWidget):
             val = int(texto)
             arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
             if not arbol:
-                QMessageBox.warning(self, "Aviso", "El árbol no existe.")
                 return
             resultado = arbol.buscar(val)
-
             if resultado:
-                # aquie es donde se recibe lo de valor y alturam :D
-                valor_enc, altura_enc = resultado
-                QMessageBox.information(
-                    self,
-                    "Nodo Encontrado",
-                    f"Valor: {valor_enc}\nAltura en el árbol: {altura_enc}")
+                QMessageBox.information(self, "Nodo Encontrado", f"Valor: {resultado[0]}\nAltura: {resultado[1]}")
             else:
                 QMessageBox.warning(self, "No encontrado", f"El valor {val} no existe en el árbol.")
 
