@@ -438,17 +438,42 @@ class MenuPrincipal(QWidget):
 
             # Se reconstruye el camino de forma manual
             camino = []
-            curr = arbol.raiz
-            while curr:
-                camino.append(curr.val)
-                if val == curr.val:
-                    break
-                elif tipo != "simple" and val < curr.val:  # Lógica para BST y AVL
-                    curr = curr.izq
-                elif tipo != "simple" and val > curr.val:
-                    curr = curr.der
-                else:
-                    break
+            if tipo == "simple":
+                # Al ser árbol simple (no ordenado), buscamos el camino usando una cola
+                #para registrar que  nodos se visitan hasta dar con el buscado :D
+                cola = [[arbol.raiz, [arbol.raiz.val]]]
+                encontrado = False
+                camino_detectado = [arbol.raiz.val]  # si no se encuentrea
+
+                while cola:
+                    nodo_act, ruta_act = cola.pop(0)
+                    if nodo_act.val == val:
+                        camino_detectado = ruta_act
+                        encontrado = True
+                        break
+                    if nodo_act.izq:
+                        cola.append([nodo_act.izq, ruta_act + [nodo_act.izq.val]])
+                    if nodo_act.der:
+                        cola.append([nodo_act.der, ruta_act + [nodo_act.der.val]])
+
+                camino = camino_detectado
+            else:
+                # Para BST (busqueda) y AVL, seguimos la propiedad de ordenación del árbol
+                curr = arbol.raiz
+                while curr:
+                    camino.append(curr.val)
+                    if val == curr.val:
+                        break
+                    elif val < curr.val:
+                        if curr.izq:
+                            curr = curr.izq
+                        else:
+                            break
+                    else:
+                        if curr.der:
+                            curr = curr.der
+                        else:
+                            break
 
             self.es_modo_buscar = True  #para saber que es una búsqueda
             self.resultado_busqueda_final = resultado
@@ -527,10 +552,15 @@ class MenuPrincipal(QWidget):
             # Si estábamos en el metodo busqueda, al terminar la animación lanzamos el mensjae ---
             if self.es_modo_buscar:
                 if self.resultado_busqueda_final:
-                    res_val, res_alt = self.resultado_busqueda_final
+                    res_val = self.resultado_busqueda_final[0]
+                    res_alt = self.resultado_busqueda_final[1]
                     QMessageBox.information(self, "Nodo Encontrado",f"¡Éxito!\nValor: {res_val}\nAltura en el árbol: {res_alt}")
                 else:
                     QMessageBox.warning(self, "No encontrado", "El valor no existe en la estructura jerárquica.")
+
+                # Limpieza de banderas de búsqueda
+                self.es_modo_buscar = False
+                self.resultado_busqueda_final = None
             return
 
         nodo_valor = self.lista_nodos_animacion[self.indice_animacion]
