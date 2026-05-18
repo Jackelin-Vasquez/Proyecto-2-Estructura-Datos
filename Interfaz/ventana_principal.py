@@ -122,11 +122,19 @@ class MenuPrincipal(QWidget):
         self.conv = conv
         self.labels_recorrido = {}
 
+        self.lbls_raiz = {}
+        self.lbls_altura = {}
+        self.lbls_nodos = {}
+
         self.setWindowTitle("Tree System - Panel de Control")
         self.setMinimumSize(1100, 700)
         self.setStyleSheet("background-color: #f0f0f0;")
 
         self.setup_ui()
+        #iniciaizar infromacion de arbol
+        self._actualizar_informacion_arbol("simple")
+        self._actualizar_informacion_arbol("busqueda")
+        self._actualizar_informacion_arbol("avl")
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
@@ -233,6 +241,36 @@ class MenuPrincipal(QWidget):
 
         layout.addLayout(controles_layout)
 
+        #Barra de información del arbol
+        info_layout = QHBoxLayout()
+        info_layout.setContentsMargins(10, 5, 10, 5)
+
+        lbl_raiz_title = QLabel("Valor Raíz: ")
+        lbl_raiz_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
+        self.lbls_raiz[tipo_arbol] = QLabel("Ninguno")
+        self.lbls_raiz[tipo_arbol].setStyleSheet(
+            "color: #1a8a42; font-weight: bold; font-size: 13px; margin-right: 20px;")
+
+        lbl_altura_title = QLabel("Altura total: ")
+        lbl_altura_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
+        self.lbls_altura[tipo_arbol] = QLabel("0")
+        self.lbls_altura[tipo_arbol].setStyleSheet(
+            "color: #1a8a42; font-weight: bold; font-size: 13px; margin-right: 20px;")
+
+        lbl_nodos_title = QLabel("Cantidad Nodos: ")
+        lbl_nodos_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
+        self.lbls_nodos[tipo_arbol] = QLabel("0")
+        self.lbls_nodos[tipo_arbol].setStyleSheet("color: #1a8a42; font-weight: bold; font-size: 13px;")
+
+        info_layout.addWidget(lbl_raiz_title);
+        info_layout.addWidget(self.lbls_raiz[tipo_arbol])
+        info_layout.addWidget(lbl_altura_title);
+        info_layout.addWidget(self.lbls_altura[tipo_arbol])
+        info_layout.addWidget(lbl_nodos_title);
+        info_layout.addWidget(self.lbls_nodos[tipo_arbol])
+        info_layout.addStretch()
+        layout.addLayout(info_layout)
+
         # seccion de recorrido
         recorrido_container = QHBoxLayout()
         recorrido_container.addStretch()
@@ -291,6 +329,7 @@ class MenuPrincipal(QWidget):
         if canvas:
             canvas.actualizar_tamano()  # Primero ajustamos el widget
             canvas.update()  # Luego se pinta :D
+            self._actualizar_informacion_arbol(tipo)
 
     def accion_insertar(self, line_edit, tipo):
         texto = line_edit.text().strip()
@@ -404,3 +443,24 @@ class MenuPrincipal(QWidget):
             QMessageBox.warning(self, "Error", "Por favor, ingrese un número válido.")
         except Exception as e:
             QMessageBox.critical(self, "Error en Eliminación",f"El motor del árbol falló:\n{str(e)}\n.")
+
+    """Función para actualizar los labels de consultar_metadata consultando al árbol y a la interfaz"""
+    def _actualizar_informacion_arbol(self, tipo):
+        arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}") #Obteien la info desde las funciones de arriba xd
+        canvas = getattr(self, f"canvas_{tipo}", None)
+
+        if arbol and arbol.raiz and canvas:
+            # Métodos lógicos del backend de los árboles
+            val_raiz = str(arbol.obtener_valor_raiz())
+            total_nodos = str(arbol.contar_nodos())
+
+            # Altura tomada directamente de inferfaz obtener_produnidad (arriba :D)
+            altura = str(canvas._obtener_profundidad(arbol.raiz))
+
+            self.lbls_raiz[tipo].setText(val_raiz)
+            self.lbls_altura[tipo].setText(altura)
+            self.lbls_nodos[tipo].setText(total_nodos)
+        else:
+            self.lbls_raiz[tipo].setText("Ninguno")
+            self.lbls_altura[tipo].setText("0")
+            self.lbls_nodos[tipo].setText("0")

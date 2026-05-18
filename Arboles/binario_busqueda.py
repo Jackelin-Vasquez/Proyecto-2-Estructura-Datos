@@ -163,3 +163,16 @@ class ArbolBusqueda:
 
     def recalcular_metadata(self):
         self._actualizar_alturas()
+
+    def obtener_valor_raiz(self):
+        if self.raiz:
+            return self.raiz.val
+        return None
+
+    def contar_nodos(self):
+        return self._contar_nodos(self.raiz)
+
+    def _contar_nodos(self, nodo):
+        if nodo is None:
+            return 0
+        return 1 + self._contar_nodos(nodo.izq) + self._contar_nodos(nodo.der)
