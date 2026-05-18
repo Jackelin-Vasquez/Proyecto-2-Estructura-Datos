@@ -4,6 +4,7 @@ from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont
 from io import StringIO
 from contextlib import contextmanager
+from PyQt6.QtCore import QTimer
 
 @contextmanager
 def capturar_print():
@@ -30,6 +31,8 @@ class CapaDibujo(QWidget):
         self.obtener_arbol = obtener_arbol_callback
         # Tamaño inicial para que la area del scroll no lo oculte
         self.setMinimumSize(800, 500)
+        #Se fuarda el valor del nodo que se está visitando actualmente :D
+        self.nodo_actual_animado = None
 
     def actualizar_tamano(self):
         arbol = self.obtener_arbol()
@@ -100,12 +103,17 @@ class CapaDibujo(QWidget):
             painter.drawLine(int(x), int(y), int(x + espacio_h), int(proximo_y))
             self._dibujar_nodo(painter, nodo.der, x + espacio_h, proximo_y, espacio_h // 2, nivel + 1)
 
-        # Círculo del nodo
-        colores = ["#00c853", "#4caf50", "#8bc34a", "#cddc39", "#d4e157"]
-        color = QColor(colores[min(nivel - 1, len(colores) - 1)])
-
-        painter.setBrush(color)
-        painter.setPen(QPen(QColor("#1a6332"), 1))
+        #Se pinta el nodo de color naranja
+        if self.nodo_actual_animado is not None and nodo.val == self.nodo_actual_animado:
+            color = QColor("#ff9100")  # Naranja :D
+            painter.setBrush(color)
+            painter.setPen(QPen(QColor("#cc5200"), 2))
+        else:
+            # Círculo del nodo
+            colores = ["#00c853", "#4caf50", "#8bc34a", "#cddc39", "#d4e157"]
+            color = QColor(colores[min(nivel - 1, len(colores) - 1)])
+            painter.setBrush(color)
+            painter.setPen(QPen(QColor("#1a6332"), 1))
         painter.drawEllipse(QPoint(int(x), int(y)), 28, 28)
 
         # Texto blanco centrado
@@ -125,6 +133,18 @@ class MenuPrincipal(QWidget):
         self.lbls_raiz = {}
         self.lbls_altura = {}
         self.lbls_nodos = {}
+
+        #Variables para la animación secuencial
+        self.timer_animacion = QTimer()
+        self.timer_animacion.timeout.connect(self._procesar_siguiente_nodo_animacion)
+        self.lista_nodos_animacion = []
+        self.indice_animacion = 0
+        self.tipo_arbol_actual_animando = ""
+        self.prefijo_modo_actual = ""
+        self.acumulado_texto_recorrido = []
+
+        self.es_modo_buscar = False
+        self.resultado_busqueda_final = None
 
         self.setWindowTitle("Tree System - Panel de Control")
         self.setMinimumSize(1100, 700)
@@ -374,9 +394,10 @@ class MenuPrincipal(QWidget):
             QMessageBox.warning(self, "Error", "Ingrese un número entero.")
 
     def accion_recorrido(self, tipo, modo):
+        self.timer_animacion.stop()
         arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
-        if arbol and arbol.raiz:
-            # Mapeo de nombres para el prefijo
+        canvas = getattr(self, f"canvas_{tipo}", None)
+        if arbol and arbol.raiz and canvas:
             nombres_modo = {"pre": "Preorden", "in": "Inorden", "post": "Postorden"}
 
             metodos = {
@@ -384,19 +405,25 @@ class MenuPrincipal(QWidget):
                 "in": arbol.inorden,
                 "post": arbol.postorden}
 
-            # Capturamos la salida
             _, texto_recorrido = ejecutar_con_captura(metodos[modo])
+            nodos_encontrados = [int(x) for x in texto_recorrido.strip().split('\n') if x.strip()]
 
-            texto_limpio = texto_recorrido.strip().replace("\n", " > ")
-            formato_final = f"{nombres_modo[modo]}: {texto_limpio}"
+            if not nodos_encontrados:
+                return
 
-            # Actualizamos el Label de la página actual
-            self.labels_recorrido[tipo].setText(formato_final)
+            self.es_modo_buscar = False
+            self.tipo_arbol_actual_animando = tipo
+            self.prefijo_modo_actual = nombres_modo[modo]
+            self.lista_nodos_animacion = nodos_encontrados
+            self.indice_animacion = 0
+            self.acumulado_texto_recorrido = []
 
+            self.timer_animacion.start(600)
         else:
             self.labels_recorrido[tipo].setText("Árbol vacío")
 
     def accion_buscar(self, line_edit, tipo):
+        self.timer_animacion.stop()  # Frenar cualquier animación corriendo
         texto = line_edit.text().strip()
         if not texto:
             return
@@ -404,13 +431,35 @@ class MenuPrincipal(QWidget):
         try:
             val = int(texto)
             arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
-            if not arbol:
+            canvas = getattr(self, f"canvas_{tipo}", None)
+            if not arbol or not arbol.raiz:
                 return
             resultado = arbol.buscar(val)
-            if resultado:
-                QMessageBox.information(self, "Nodo Encontrado", f"Valor: {resultado[0]}\nAltura: {resultado[1]}")
-            else:
-                QMessageBox.warning(self, "No encontrado", f"El valor {val} no existe en el árbol.")
+
+            # Se reconstruye el camino de forma manual
+            camino = []
+            curr = arbol.raiz
+            while curr:
+                camino.append(curr.val)
+                if val == curr.val:
+                    break
+                elif tipo != "simple" and val < curr.val:  # Lógica para BST y AVL
+                    curr = curr.izq
+                elif tipo != "simple" and val > curr.val:
+                    curr = curr.der
+                else:
+                    break
+
+            self.es_modo_buscar = True  #para saber que es una búsqueda
+            self.resultado_busqueda_final = resultado
+            self.tipo_arbol_actual_animando = tipo
+            self.prefijo_modo_actual = "Camino de Búsqueda"
+            self.lista_nodos_animacion = camino
+            self.indice_animacion = 0
+            self.acumulado_texto_recorrido = []
+
+            self.timer_animacion.start(500)
+            line_edit.clear()
 
         except ValueError:
             QMessageBox.critical(self, "Error", "Por favor, ingrese un número entero.")
@@ -464,3 +513,34 @@ class MenuPrincipal(QWidget):
             self.lbls_raiz[tipo].setText("Ninguno")
             self.lbls_altura[tipo].setText("0")
             self.lbls_nodos[tipo].setText("0")
+
+    def _procesar_siguiente_nodo_animacion(self):
+        tipo = self.tipo_arbol_actual_animando
+        canvas = getattr(self, f"canvas_{tipo}", None)
+
+        if self.indice_animacion >= len(self.lista_nodos_animacion):
+            self.timer_animacion.stop()
+            if canvas:
+                canvas.nodo_actual_animado = None
+                canvas.update()
+
+            # Si estábamos en el metodo busqueda, al terminar la animación lanzamos el mensjae ---
+            if self.es_modo_buscar:
+                if self.resultado_busqueda_final:
+                    res_val, res_alt = self.resultado_busqueda_final
+                    QMessageBox.information(self, "Nodo Encontrado",f"¡Éxito!\nValor: {res_val}\nAltura en el árbol: {res_alt}")
+                else:
+                    QMessageBox.warning(self, "No encontrado", "El valor no existe en la estructura jerárquica.")
+            return
+
+        nodo_valor = self.lista_nodos_animacion[self.indice_animacion]
+
+        if canvas:
+            canvas.nodo_actual_animado = nodo_valor
+            canvas.update()
+
+        self.acumulado_texto_recorrido.append(str(nodo_valor))
+        formato_texto = f"{self.prefijo_modo_actual}: {' ➔ '.join(self.acumulado_texto_recorrido)}"
+        self.labels_recorrido[tipo].setText(formato_texto)
+
+        self.indice_animacion += 1
