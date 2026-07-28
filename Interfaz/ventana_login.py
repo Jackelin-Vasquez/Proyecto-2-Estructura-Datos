@@ -1,5 +1,8 @@
+import re
 import sys
 import os
+
+from Datos import auth as auth_por_defecto
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QBrush, QImage, QPixmap
@@ -12,7 +15,7 @@ except ImportError:
 class ArbolesLogin(QWidget):
     def __init__(self, auth, on_login_exitoso):
         super().__init__()
-        self.auth = auth
+        self.auth = auth if auth is not None else auth_por_defecto
         self.on_login_exitoso = on_login_exitoso
 
         self.setWindowTitle("Login de Arboles")
@@ -148,9 +151,22 @@ class ArbolesLogin(QWidget):
     def intentar_login(self):
         usuario = self.user_input.text().strip()
         contra = self.pass_input.text()
-        # CREDENCIALES QUEMADAS
-        if usuario == "admin" and contra == "1234":
-            QMessageBox.information(self, "Éxito", f"Acceso concedido. ¡Bienvenido {usuario}!")
+
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,32}", usuario):
+            QMessageBox.critical(self, "Error", "Usuario o contraseña incorrectos.\n")
+            return
+
+        if not self.auth.cargar_usuarios():
+            QMessageBox.critical(
+                self,
+                "Sin usuarios",
+                "No hay usuarios registrados.\n"
+                "Cree uno con: python -m Datos.auth crear-usuario <usuario>",
+            )
+            return
+
+        if self.auth.verificar(usuario, contra):
+            self.pass_input.clear()
             self.on_login_exitoso(usuario)
         else:
             QMessageBox.critical(self, "Error", "Usuario o contraseña incorrectos.\n")

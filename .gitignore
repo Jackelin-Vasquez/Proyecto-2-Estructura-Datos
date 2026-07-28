@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+usuarios.json
+binario_simple.json
+binario_busqueda.json
+binario_balanceado.json
