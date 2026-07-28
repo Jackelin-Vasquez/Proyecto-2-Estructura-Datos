@@ -1,13 +1,19 @@
 import sys
 import os
+import logging
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QMessageBox
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPalette, QBrush, QImage, QPixmap
 
 try:
-    from ventana_principal import MenuPrincipal
+    from Interfaz.ventana_principal import MenuPrincipal
 except ImportError:
-    MenuPrincipal = None
+    try:
+        from ventana_principal import MenuPrincipal
+    except ImportError:
+        # No ocultamos el error en silencio: lo registramos para poder diagnosticarlo.
+        logging.exception("No se pudo importar MenuPrincipal")
+        MenuPrincipal = None
 
 class ArbolesLogin(QWidget):
     def __init__(self, auth, on_login_exitoso):
@@ -176,6 +182,11 @@ if __name__ == "__main__":
             conv_engine.bAVB_dump()
         except FileNotFoundError:
             print("No hay archivos previos, iniciando limpio.")
+        except ValueError as e:
+            # Datos corruptos: avisamos al usuario en vez de morir con un traceback.
+            print(f"Error al cargar datos guardados: {e}")
+            QMessageBox.critical(None, "Error de datos",
+                                 f"No se pudieron cargar los árboles guardados:\n{e}")
 
     except ImportError as e:
         print(f"Error: No se encontradon datos {e}")
@@ -183,6 +194,10 @@ if __name__ == "__main__":
 
     def abrir_menu(usuario):
         global win_principal
+        if MenuPrincipal is None:
+            QMessageBox.critical(None, "Error",
+                                 "No se pudo cargar el menú principal (módulo no disponible).")
+            return
         try:
             win_principal = MenuPrincipal(usuario, raw_engine, conv_engine)
             win_principal.show()
