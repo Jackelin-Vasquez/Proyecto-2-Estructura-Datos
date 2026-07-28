@@ -351,13 +351,28 @@ class MenuPrincipal(QWidget):
             canvas.update()  # Luego se pinta :D
             self._actualizar_informacion_arbol(tipo)
 
+    def _guardar_arbol(self, tipo):
+        """Persiste el árbol del tipo indicado en su JSON."""
+        if tipo == "simple":
+            self.raw.bn_save()
+        elif tipo == "busqueda":
+            self.raw.bABB_save()
+        elif tipo == "avl":
+            self.raw.bAVB_save()
+
     def accion_insertar(self, line_edit, tipo):
         texto = line_edit.text().strip()
         if not texto:
             return
 
+        # El parseo del entero es lo único que debe tratarse como "número inválido".
         try:
             val = int(texto)
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Ingrese un número entero.")
+            return
+
+        try:
             nombre_it = f"Tree_{self.usuario}"
             arbol = self._obtener_arbol(tipo, nombre_it)
 
@@ -375,23 +390,27 @@ class MenuPrincipal(QWidget):
                     arbol = ArbolAVL(nombre_it)
                     self.conv.binario_AVB[nombre_it] = arbol
 
+            # Detectamos si el valor realmente se agregó (los duplicados se
+            # rechazan en el backend y antes se ignoraban en silencio).
+            nodos_antes = arbol.contar_nodos()
             if tipo == "avl":
                 arbol.insertar(val)
             else:
                 arbol.agregar(val)
 
-            # GUARDAR EN JSON SEGÚN MOTOR
-            if tipo == "simple":
-                self.raw.bn_save()
-            elif tipo == "busqueda":
-                self.raw.bABB_save()
-            elif tipo == "avl":
-                self.raw.bAVB_save()
+            if arbol.contar_nodos() == nodos_antes:
+                QMessageBox.information(self, "Aviso",
+                                        f"El valor {val} ya existe; no se agregó.")
+                line_edit.clear()
+                self._refrescar_canvas(tipo)
+                return
 
+            self._guardar_arbol(tipo)
             line_edit.clear()
             self._refrescar_canvas(tipo)
-        except ValueError:
-            QMessageBox.warning(self, "Error", "Ingrese un número entero.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error al insertar",
+                                 f"No se pudo insertar el valor:\n{str(e)}")
 
     def accion_recorrido(self, tipo, modo):
         self.timer_animacion.stop()
@@ -488,6 +507,10 @@ class MenuPrincipal(QWidget):
 
         except ValueError:
             QMessageBox.critical(self, "Error", "Por favor, ingrese un número entero.")
+        except Exception as e:
+            self.timer_animacion.stop()
+            QMessageBox.critical(self, "Error al buscar",
+                                 f"No se pudo completar la búsqueda:\n{str(e)}")
 
     def accion_eliminar(self, line_edit, tipo):
         texto = line_edit.text().strip()
@@ -500,12 +523,7 @@ class MenuPrincipal(QWidget):
             if arbol:
                 arbol.eliminar(val)
                 #Guardar cambios
-                if tipo == "simple":
-                    self.raw.bn_save()
-                elif tipo == "busqueda":
-                    self.raw.bABB_save()
-                elif tipo == "avl":
-                    self.raw.bAVB_save()
+                self._guardar_arbol(tipo)
 
                 #Se actualiza interfaz
                 self._refrescar_canvas(tipo)

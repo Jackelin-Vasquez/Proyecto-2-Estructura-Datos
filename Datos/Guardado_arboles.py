@@ -104,15 +104,22 @@ class ArbolesRaw:
         self.bAVB_save()
 
 
+    def _load_json(self, ruta):
+        """Carga un JSON. Si el archivo no existe devuelve {} (inicio limpio).
+        Si el archivo está corrupto propaga un error claro identificando el archivo
+        en lugar de un JSONDecodeError sin contexto."""
+        try:
+            with open(ruta, 'r', encoding='utf-8') as c:
+                return json.load(c)
+        except FileNotFoundError:
+            return {}
+        except json.JSONDecodeError as e:
+            raise ValueError(f"El archivo '{ruta}' está corrupto y no se pudo leer: {e}") from e
+
     def load(self):
-        with open('binario_simple.json', 'r', encoding='utf-8') as c:
-            self.binario_n = json.load(c)
-
-        with open('binario_busqueda.json', 'r', encoding='utf-8') as c:
-            self.binario_ABB = json.load(c)
-
-        with open('binario_balanceado.json', 'r', encoding='utf-8') as c:
-            self.binario_AVB = json.load(c)
+        self.binario_n = self._load_json('binario_simple.json')
+        self.binario_ABB = self._load_json('binario_busqueda.json')
+        self.binario_AVB = self._load_json('binario_balanceado.json')
 
 
 
