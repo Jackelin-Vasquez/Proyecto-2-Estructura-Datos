@@ -1,8 +1,17 @@
 import sys
 import os
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit, QFrame, QMessageBox
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPalette, QBrush, QImage, QPixmap
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QFrame, QMessageBox
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QPalette, QBrush, QPixmap
+
+from Interfaz.estilos import (
+    ESTILO_BOTON_PRINCIPAL,
+    ESTILO_INPUT_OSCURO,
+    crear_boton,
+    crear_input,
+    crear_label,
+    escalar_imagen,
+)
 
 try:
     from ventana_principal import MenuPrincipal
@@ -30,20 +39,17 @@ class ArbolesLogin(QWidget):
         super().resizeEvent(event)
 
     def actualizar_fondo(self):
-        ruta_fondo = os.path.join(self.carpeta_recursos, "fono.png")
-        if os.path.exists(ruta_fondo):
-            oImage = QImage(ruta_fondo)
-            sImage = oImage.scaled(
-                self.size(),
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            palette = QPalette()
-            palette.setBrush(QPalette.ColorRole.Window, QBrush(sImage))
-            self.setPalette(palette)
-        else:
+        fondo = escalar_imagen(
+            os.path.join(self.carpeta_recursos, "fono.png"), self.size(), expandir=True
+        )
+        if fondo is None:
             # Color de respaldo si no hay imagen
             self.setStyleSheet("background-color: #121212;")
+            return
+
+        palette = QPalette()
+        palette.setBrush(QPalette.ColorRole.Window, QBrush(fondo))
+        self.setPalette(palette)
 
     def setup_ui(self):
         self.setStyleSheet("color: white; font-family: 'Segoe UI', Arial;")
@@ -65,85 +71,55 @@ class ArbolesLogin(QWidget):
         container_layout.setSpacing(10)
 
         # Logo
-        ruta_logo = os.path.join(self.carpeta_recursos, "icono2.png")
         logo_label = QLabel()
         logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         logo_label.setStyleSheet("border: none; background: transparent;")
 
-        if os.path.exists(ruta_logo):
-            img_logo = QImage(ruta_logo)
-            scaled_logo = img_logo.scaled(120, 120, Qt.AspectRatioMode.KeepAspectRatio,
-                                          Qt.TransformationMode.SmoothTransformation)
-            logo_label.setPixmap(QPixmap.fromImage(scaled_logo))
-        else:
+        logo = escalar_imagen(
+            os.path.join(self.carpeta_recursos, "icono2.png"), QSize(120, 120)
+        )
+        if logo is None:
             logo_label.setText("LOGO") # Texto provisional
+        else:
+            logo_label.setPixmap(QPixmap.fromImage(logo))
 
         container_layout.addWidget(logo_label)
 
-        titulo = QLabel("ARBOLES")
-        titulo.setStyleSheet("font-size: 28px; font-weight: bold; border: none; background: transparent;")
-        titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        container_layout.addWidget(titulo)
-
-        sub_titulo = QLabel("- BIENVENIDO! -")
-        sub_titulo.setStyleSheet("color: #888; border: none; font-size: 13px; background: transparent;")
-        sub_titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        container_layout.addWidget(sub_titulo)
+        container_layout.addWidget(crear_label(
+            "ARBOLES",
+            "font-size: 28px; font-weight: bold; border: none; background: transparent;",
+            centrado=True,
+        ))
+        container_layout.addWidget(crear_label(
+            "- BIENVENIDO! -",
+            "color: #888; border: none; font-size: 13px; background: transparent;",
+            centrado=True,
+        ))
 
         container_layout.addSpacing(20)
 
         # Inputs
-        self.user_input = QLineEdit()
-        self.user_input.setPlaceholderText("USUARIO")
-        self.apply_input_style(self.user_input)
+        self.user_input = crear_input("USUARIO", ESTILO_INPUT_OSCURO, alto=48)
         container_layout.addWidget(self.user_input)
 
-        self.pass_input = QLineEdit()
-        self.pass_input.setPlaceholderText("CONTRASEÑA")
+        self.pass_input = crear_input("CONTRASEÑA", ESTILO_INPUT_OSCURO, alto=48)
         self.pass_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.apply_input_style(self.pass_input)
         container_layout.addWidget(self.pass_input)
 
         container_layout.addSpacing(20)
 
         # Botón
-        btn_entrar = QPushButton("ENTRAR")
-        btn_entrar.setMinimumHeight(55)
-        btn_entrar.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_entrar.setStyleSheet("""
-                    QPushButton {
-                        background-color: #28a745;
-                        color: white;
-                        border-radius: 27px;
-                        font-size: 18px;
-                        font-weight: bold;
-                        border: none;
-                    }
-                    QPushButton:hover { background-color: #48c774; }
-                """)
+        btn_entrar = crear_boton("ENTRAR", ESTILO_BOTON_PRINCIPAL, alto=55)
         btn_entrar.clicked.connect(self.intentar_login)
         container_layout.addWidget(btn_entrar)
 
-        links = QLabel("¿Olvidó su contraseña?")
-        links.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        links.setStyleSheet("background: transparent; border: none; color: #666; font-size: 11px; margin-top: 10px;")
-        container_layout.addWidget(links)
+        container_layout.addWidget(crear_label(
+            "¿Olvidó su contraseña?",
+            "background: transparent; border: none; color: #666; font-size: 11px; margin-top: 10px;",
+            centrado=True,
+        ))
 
         main_layout.addWidget(container)
-
-    def apply_input_style(self, widget):
-        widget.setMinimumHeight(48)
-        widget.setStyleSheet("""
-                    QLineEdit {
-                        background-color: #2a2a2a;
-                        border: 1px solid #444;
-                        border-radius: 12px;
-                        padding-left: 15px;
-                        color: white;
-                        font-size: 14px;
-                    }
-                    QLineEdit:focus { border: 1px solid #28a745; }
-                """)
 
     def intentar_login(self):
         usuario = self.user_input.text().strip()
@@ -171,9 +147,7 @@ if __name__ == "__main__":
 
         try:
             raw_engine.load()
-            conv_engine.bn_dump()
-            conv_engine.bABB_dump()
-            conv_engine.bAVB_dump()
+            conv_engine.full_dump()
         except FileNotFoundError:
             print("No hay archivos previos, iniciando limpio.")
 

@@ -1,10 +1,23 @@
 import sys
-from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLabel,QFrame, QLineEdit, QStackedWidget, QMessageBox, QScrollArea)
-from PyQt6.QtCore import Qt, QPoint, QSize
+from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QFrame, QStackedWidget, QMessageBox, QScrollArea)
+from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QPainter, QPen, QColor, QFont
 from io import StringIO
 from contextlib import contextmanager
 from PyQt6.QtCore import QTimer
+
+from Datos.tipos_arbol import SIMPLE, TIPOS
+from Interfaz.estilos import (
+    ESTILO_BOTON_ACCION,
+    ESTILO_BOTON_MENU,
+    ESTILO_INPUT_CLARO,
+    ESTILO_TITULO_INFO,
+    ESTILO_VALOR_INFO,
+    crear_boton,
+    crear_input,
+    crear_label,
+)
+from Recorridos import recorridos
 
 @contextmanager
 def capturar_print():
@@ -66,8 +79,7 @@ class CapaDibujo(QWidget):
         self._dibujar_nodo(painter, arbol.raiz, self.width() // 2 + 50, 80, ancho_disponible // 4, 1)
 
     def _obtener_profundidad(self, nodo):
-        if not nodo: return 0
-        return 1 + max(self._obtener_profundidad(nodo.izq), self._obtener_profundidad(nodo.der))
+        return recorridos.profundidad(nodo)
 
     def _dibujar_fondo_niveles(self, painter, niveles):
         painter.setFont(QFont("Arial", 12, QFont.Weight.Bold))
@@ -133,6 +145,7 @@ class MenuPrincipal(QWidget):
         self.lbls_raiz = {}
         self.lbls_altura = {}
         self.lbls_nodos = {}
+        self.canvas_por_tipo = {}
 
         #Variables para la animación secuencial
         self.timer_animacion = QTimer()
@@ -152,9 +165,8 @@ class MenuPrincipal(QWidget):
 
         self.setup_ui()
         #iniciaizar infromacion de arbol
-        self._actualizar_informacion_arbol("simple")
-        self._actualizar_informacion_arbol("busqueda")
-        self._actualizar_informacion_arbol("avl")
+        for tipo in TIPOS:
+            self._actualizar_informacion_arbol(tipo)
 
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
@@ -168,96 +180,54 @@ class MenuPrincipal(QWidget):
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        lbl_logo = QLabel("Tree\nSystem")
-        lbl_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_logo.setStyleSheet("color: white; font-size: 28px; font-weight: bold; margin: 20px;")
-        sidebar_layout.addWidget(lbl_logo)
-
-        self.btn_binario = self.crear_boton_menu("Árbol binario")
-        self.btn_bst = self.crear_boton_menu("Árbol BST")
-        self.btn_avl = self.crear_boton_menu("Árbol AVL")
-
-        sidebar_layout.addWidget(self.btn_binario)
-        sidebar_layout.addWidget(self.btn_bst)
-        sidebar_layout.addWidget(self.btn_avl)
-        sidebar_layout.addStretch()
+        sidebar_layout.addWidget(crear_label(
+            "Tree\nSystem",
+            "color: white; font-size: 28px; font-weight: bold; margin: 20px;",
+            centrado=True,
+        ))
 
         # --- CONTENIDO ---
         self.stack = QStackedWidget()
-        self.pag_simple = self.crear_pagina_arbol("Árbol binario", "simple")
-        self.pag_busqueda = self.crear_pagina_arbol("Árbol BST", "busqueda")
-        self.pag_avl = self.crear_pagina_arbol("Árbol AVL", "avl")
 
-        self.stack.addWidget(self.pag_simple)
-        self.stack.addWidget(self.pag_busqueda)
-        self.stack.addWidget(self.pag_avl)
+        for indice, (tipo, spec) in enumerate(TIPOS.items()):
+            btn = crear_boton(spec.etiqueta, ESTILO_BOTON_MENU, alto=50)
+            btn.clicked.connect(lambda _, i=indice: self.stack.setCurrentIndex(i))
+            sidebar_layout.addWidget(btn)
+            self.stack.addWidget(self.crear_pagina_arbol(spec.etiqueta, tipo))
 
-        self.btn_binario.clicked.connect(lambda: self.stack.setCurrentIndex(0))
-        self.btn_bst.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-        self.btn_avl.clicked.connect(lambda: self.stack.setCurrentIndex(2))
+        sidebar_layout.addStretch()
 
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.stack)
-
-    def crear_boton_menu(self, texto):
-        btn = QPushButton(texto)
-        btn.setFixedHeight(50)
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: white;
-                font-size: 16px;
-                text-align: left;
-                padding-left: 20px;
-                border-bottom: 1px solid #28a745;
-            }
-            QPushButton:hover { background-color: #28a745; }
-        """)
-        return btn
 
     def crear_pagina_arbol(self, titulo_texto, tipo_arbol):
         pagina = QWidget()
         layout = QVBoxLayout(pagina)
         layout.setContentsMargins(40, 20, 40, 20)
 
-        titulo = QLabel(titulo_texto)
-        titulo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        titulo.setStyleSheet("font-size: 36px; font-weight: bold; color: #333333;")
-        layout.addWidget(titulo)
+        layout.addWidget(crear_label(
+            titulo_texto, "font-size: 36px; font-weight: bold; color: #333333;", centrado=True))
 
         controles_layout = QHBoxLayout()
-        input_val = QLineEdit()
-        input_val.setPlaceholderText("Valor...")
-        input_val.setFixedWidth(120)
-        input_val.setStyleSheet(
-            "border-radius: 10px; border: 1px solid #999; padding: 5px; background: white; color: black;")
-
-        btn_insertar = self.crear_boton_accion("Insertar")
-        btn_buscar = self.crear_boton_accion("Buscar")
-        btn_eliminar = self.crear_boton_accion("Eliminar")
-
-        btn_insertar.clicked.connect(lambda: self.accion_insertar(input_val, tipo_arbol))
-        btn_buscar.clicked.connect(lambda: self.accion_buscar(input_val, tipo_arbol))
-        btn_eliminar.clicked.connect(lambda: self.accion_eliminar(input_val, tipo_arbol))
-
+        input_val = crear_input("Valor...", ESTILO_INPUT_CLARO, ancho=120)
         controles_layout.addWidget(input_val)
-        controles_layout.addWidget(btn_insertar)
-        controles_layout.addWidget(btn_buscar)
-        controles_layout.addWidget(btn_eliminar)
+
+        acciones = [
+            ("Insertar", lambda: self.accion_insertar(input_val, tipo_arbol)),
+            ("Buscar", lambda: self.accion_buscar(input_val, tipo_arbol)),
+            ("Eliminar", lambda: self.accion_eliminar(input_val, tipo_arbol)),
+        ]
+        for texto, callback in acciones:
+            btn = crear_boton(texto, ESTILO_BOTON_ACCION)
+            btn.clicked.connect(callback)
+            controles_layout.addWidget(btn)
+
         controles_layout.addStretch()
 
-        btn_pre = self.crear_boton_accion("Preorden")
-        btn_in = self.crear_boton_accion("Inorden")
-        btn_post = self.crear_boton_accion("Postorden")
-
-        btn_pre.clicked.connect(lambda: self.accion_recorrido(tipo_arbol, "pre"))
-        btn_in.clicked.connect(lambda: self.accion_recorrido(tipo_arbol, "in"))
-        btn_post.clicked.connect(lambda: self.accion_recorrido(tipo_arbol, "post"))
-
-        controles_layout.addWidget(btn_pre)
-        controles_layout.addWidget(btn_in)
-        controles_layout.addWidget(btn_post)
+        for texto, modo in (("Preorden", "pre"), ("Inorden", "in"), ("Postorden", "post")):
+            btn = crear_boton(texto, ESTILO_BOTON_ACCION)
+            btn.clicked.connect(lambda _, m=modo: self.accion_recorrido(tipo_arbol, m))
+            controles_layout.addWidget(btn)
 
         layout.addLayout(controles_layout)
 
@@ -265,29 +235,11 @@ class MenuPrincipal(QWidget):
         info_layout = QHBoxLayout()
         info_layout.setContentsMargins(10, 5, 10, 5)
 
-        lbl_raiz_title = QLabel("Valor Raíz: ")
-        lbl_raiz_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
-        self.lbls_raiz[tipo_arbol] = QLabel("Ninguno")
-        self.lbls_raiz[tipo_arbol].setStyleSheet(
-            "color: #1a8a42; font-weight: bold; font-size: 13px; margin-right: 20px;")
+        self.lbls_raiz[tipo_arbol] = self._agregar_dato_info(info_layout, "Valor Raíz: ", "Ninguno")
+        self.lbls_altura[tipo_arbol] = self._agregar_dato_info(info_layout, "Altura total: ", "0")
+        self.lbls_nodos[tipo_arbol] = self._agregar_dato_info(
+            info_layout, "Cantidad Nodos: ", "0", ultimo=True)
 
-        lbl_altura_title = QLabel("Altura total: ")
-        lbl_altura_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
-        self.lbls_altura[tipo_arbol] = QLabel("0")
-        self.lbls_altura[tipo_arbol].setStyleSheet(
-            "color: #1a8a42; font-weight: bold; font-size: 13px; margin-right: 20px;")
-
-        lbl_nodos_title = QLabel("Cantidad Nodos: ")
-        lbl_nodos_title.setStyleSheet("font-weight: bold; color: #555555; font-size: 13px;")
-        self.lbls_nodos[tipo_arbol] = QLabel("0")
-        self.lbls_nodos[tipo_arbol].setStyleSheet("color: #1a8a42; font-weight: bold; font-size: 13px;")
-
-        info_layout.addWidget(lbl_raiz_title);
-        info_layout.addWidget(self.lbls_raiz[tipo_arbol])
-        info_layout.addWidget(lbl_altura_title);
-        info_layout.addWidget(self.lbls_altura[tipo_arbol])
-        info_layout.addWidget(lbl_nodos_title);
-        info_layout.addWidget(self.lbls_nodos[tipo_arbol])
         info_layout.addStretch()
         layout.addLayout(info_layout)
 
@@ -295,8 +247,8 @@ class MenuPrincipal(QWidget):
         recorrido_container = QHBoxLayout()
         recorrido_container.addStretch()
 
-        lbl_resultado = QLabel("")
-        lbl_resultado.setStyleSheet(
+        lbl_resultado = crear_label(
+            "",
             "font-size: 14px; color: #333; font-weight: bold; margin-top: 10px; margin-bottom: 10px;")
 
         self.labels_recorrido[tipo_arbol] = lbl_resultado
@@ -310,42 +262,32 @@ class MenuPrincipal(QWidget):
         scroll_area.setStyleSheet("background-color: white; border: 1px solid #ccc; border-radius: 10px;")
 
         # CAPA DE DIBUJO
-        capa = CapaDibujo(lambda: self._obtener_arbol(tipo_arbol, f"Tree_{self.usuario}"))
+        capa = CapaDibujo(lambda: self._obtener_arbol(tipo_arbol, self._nombre_arbol()))
         scroll_area.setWidget(capa)
         layout.addWidget(scroll_area, 1)
 
-        if tipo_arbol == "simple":
-            self.canvas_simple = capa
-        elif tipo_arbol == "busqueda":
-            self.canvas_busqueda = capa
-        elif tipo_arbol == "avl":
-            self.canvas_avl = capa
+        self.canvas_por_tipo[tipo_arbol] = capa
 
         return pagina
 
-    def crear_boton_accion(self, texto):
-        btn = QPushButton(texto)
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border-radius: 12px;
-                padding: 8px 15px;
-                font-weight: bold;
-            }
-            QPushButton:hover { background-color: #218838; }
-        """)
-        return btn
+    def _agregar_dato_info(self, info_layout, titulo, valor_inicial, ultimo=False):
+        info_layout.addWidget(crear_label(titulo, ESTILO_TITULO_INFO))
+        estilo = ESTILO_VALOR_INFO if ultimo else ESTILO_VALOR_INFO + " margin-right: 20px;"
+        lbl_valor = crear_label(valor_inicial, estilo)
+        info_layout.addWidget(lbl_valor)
+        return lbl_valor
+
+    def _nombre_arbol(self):
+        return f"Tree_{self.usuario}"
 
     def _obtener_arbol(self, tipo, nombre):
-        if tipo == "simple": return self.conv.bn_search(nombre)
-        if tipo == "busqueda": return self.conv.bABB_search(nombre)
-        if tipo == "avl": return self.conv.bAVB_search(nombre)
-        return None
+        return self.conv.search(tipo, nombre)
+
+    def _canvas(self, tipo):
+        return self.canvas_por_tipo.get(tipo)
 
     def _refrescar_canvas(self, tipo):
-        canvas = getattr(self, f"canvas_{tipo}", None)
+        canvas = self._canvas(tipo)
         if canvas:
             canvas.actualizar_tamano()  # Primero ajustamos el widget
             canvas.update()  # Luego se pinta :D
@@ -358,35 +300,14 @@ class MenuPrincipal(QWidget):
 
         try:
             val = int(texto)
-            nombre_it = f"Tree_{self.usuario}"
+            nombre_it = self._nombre_arbol()
             arbol = self._obtener_arbol(tipo, nombre_it)
 
             if not arbol:
-                if tipo == "simple":
-                    from Arboles.binario_simple import ArbolSimple
-                    arbol = ArbolSimple(nombre_it)
-                    self.conv.binario_n[nombre_it] = arbol
-                elif tipo == "busqueda":
-                    from Arboles.binario_busqueda import ArbolBusqueda
-                    arbol = ArbolBusqueda(nombre_it)
-                    self.conv.binario_ABB[nombre_it] = arbol
-                elif tipo == "avl":
-                    from Arboles.binario_balanceado import ArbolAVL
-                    arbol = ArbolAVL(nombre_it)
-                    self.conv.binario_AVB[nombre_it] = arbol
+                arbol = self.conv.registrar(tipo, TIPOS[tipo].arbol_clase(nombre_it))
 
-            if tipo == "avl":
-                arbol.insertar(val)
-            else:
-                arbol.agregar(val)
-
-            # GUARDAR EN JSON SEGÚN MOTOR
-            if tipo == "simple":
-                self.raw.bn_save()
-            elif tipo == "busqueda":
-                self.raw.bABB_save()
-            elif tipo == "avl":
-                self.raw.bAVB_save()
+            arbol.agregar(val)
+            self.raw.guardar(tipo)
 
             line_edit.clear()
             self._refrescar_canvas(tipo)
@@ -395,8 +316,8 @@ class MenuPrincipal(QWidget):
 
     def accion_recorrido(self, tipo, modo):
         self.timer_animacion.stop()
-        arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
-        canvas = getattr(self, f"canvas_{tipo}", None)
+        arbol = self._obtener_arbol(tipo, self._nombre_arbol())
+        canvas = self._canvas(tipo)
         if arbol and arbol.raiz and canvas:
             nombres_modo = {"pre": "Preorden", "in": "Inorden", "post": "Postorden"}
 
@@ -430,50 +351,16 @@ class MenuPrincipal(QWidget):
 
         try:
             val = int(texto)
-            arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
-            canvas = getattr(self, f"canvas_{tipo}", None)
+            arbol = self._obtener_arbol(tipo, self._nombre_arbol())
             if not arbol or not arbol.raiz:
                 return
             resultado = arbol.buscar(val)
 
-            # Se reconstruye el camino de forma manual
-            camino = []
-            if tipo == "simple":
-                # Al ser árbol simple (no ordenado), buscamos el camino usando una cola
-                #para registrar que  nodos se visitan hasta dar con el buscado :D
-                cola = [[arbol.raiz, [arbol.raiz.val]]]
-                encontrado = False
-                camino_detectado = [arbol.raiz.val]  # si no se encuentrea
-
-                while cola:
-                    nodo_act, ruta_act = cola.pop(0)
-                    if nodo_act.val == val:
-                        camino_detectado = ruta_act
-                        encontrado = True
-                        break
-                    if nodo_act.izq:
-                        cola.append([nodo_act.izq, ruta_act + [nodo_act.izq.val]])
-                    if nodo_act.der:
-                        cola.append([nodo_act.der, ruta_act + [nodo_act.der.val]])
-
-                camino = camino_detectado
+            # El camino depende de si el árbol está ordenado o no
+            if tipo == SIMPLE:
+                camino = recorridos.camino_por_niveles(arbol.raiz, val)
             else:
-                # Para BST (busqueda) y AVL, seguimos la propiedad de ordenación del árbol
-                curr = arbol.raiz
-                while curr:
-                    camino.append(curr.val)
-                    if val == curr.val:
-                        break
-                    elif val < curr.val:
-                        if curr.izq:
-                            curr = curr.izq
-                        else:
-                            break
-                    else:
-                        if curr.der:
-                            curr = curr.der
-                        else:
-                            break
+                camino = recorridos.camino_ordenado(arbol.raiz, val)
 
             self.es_modo_buscar = True  #para saber que es una búsqueda
             self.resultado_busqueda_final = resultado
@@ -495,17 +382,11 @@ class MenuPrincipal(QWidget):
             return
         try:
             val = int(texto)
-            arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}")
+            arbol = self._obtener_arbol(tipo, self._nombre_arbol())
 
             if arbol:
                 arbol.eliminar(val)
-                #Guardar cambios
-                if tipo == "simple":
-                    self.raw.bn_save()
-                elif tipo == "busqueda":
-                    self.raw.bABB_save()
-                elif tipo == "avl":
-                    self.raw.bAVB_save()
+                self.raw.guardar(tipo)
 
                 #Se actualiza interfaz
                 self._refrescar_canvas(tipo)
@@ -520,8 +401,8 @@ class MenuPrincipal(QWidget):
 
     """Función para actualizar los labels de consultar_metadata consultando al árbol y a la interfaz"""
     def _actualizar_informacion_arbol(self, tipo):
-        arbol = self._obtener_arbol(tipo, f"Tree_{self.usuario}") #Obteien la info desde las funciones de arriba xd
-        canvas = getattr(self, f"canvas_{tipo}", None)
+        arbol = self._obtener_arbol(tipo, self._nombre_arbol()) #Obteien la info desde las funciones de arriba xd
+        canvas = self._canvas(tipo)
 
         if arbol and arbol.raiz and canvas:
             # Métodos lógicos del backend de los árboles
@@ -541,7 +422,7 @@ class MenuPrincipal(QWidget):
 
     def _procesar_siguiente_nodo_animacion(self):
         tipo = self.tipo_arbol_actual_animando
-        canvas = getattr(self, f"canvas_{tipo}", None)
+        canvas = self._canvas(tipo)
 
         if self.indice_animacion >= len(self.lista_nodos_animacion):
             self.timer_animacion.stop()

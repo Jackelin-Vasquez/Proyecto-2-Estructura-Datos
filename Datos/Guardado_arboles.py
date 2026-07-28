@@ -1,13 +1,14 @@
 import json
-from Arboles.__init__ import ArbolBusqueda, ArbolAVL, ArbolSimple
-from Arboles.binario_simple import Nodo as NodoSimple
-from Arboles.binario_busqueda import Nodo as NodoBusqueda
-from Arboles.binario_balanceado import Nodo as NodoAVL
+
+from Datos.tipos_arbol import AVL, BUSQUEDA, SIMPLE, TIPOS
 
 """
-    TODO sistema de guardado de JSON para cada tipo de árbol
-    TODO sistema de conversión de los arbolitos
+    Sistema de guardado JSON y de conversión de los arbolitos.
+    Los tres tipos de árbol comparten el mismo flujo, así que las operaciones
+    son genéricas y se seleccionan con la clave del tipo (ver Datos.tipos_arbol).
 """
+
+
 class ArbolesRaw:
     """
     SOLO SE DEBE LLAMAR A ESTA CLASE UNA VEZ EN TO-DO EL SISTEMA.
@@ -19,101 +20,50 @@ class ArbolesRaw:
         self.binario_n = {}
         self.binario_ABB = {}
         self.binario_AVB = {}
+        # Los diccionarios se mutan, nunca se reasignan, para que este índice siga siendo válido.
+        self.por_tipo = {
+            SIMPLE: self.binario_n,
+            BUSQUEDA: self.binario_ABB,
+            AVL: self.binario_AVB,
+        }
 
     def _obtener_altura(self, obj_instance):
         if hasattr(obj_instance, "altura_max"):
             return obj_instance.altura_max
         if hasattr(obj_instance, "raiz"):
             return obj_instance.raiz.altura if obj_instance.raiz else 0
-        if hasattr(obj_instance, "altura") and not callable(obj_instance.altura):
-            return obj_instance.altura
         return None
 
-    def bn_convert(self, name):
-        if not any(k_name == name for k_name in self.conv_origin.binario_n.keys()):
+    def convertir(self, tipo, name):
+        instancias = self.conv_origin.por_tipo[tipo]
+        if name not in instancias:
             return False
 
-        obj_instance = self.conv_origin.binario_n[name]
-        n_list = obj_instance.convertir_a_dict()
-
-        self.binario_n[name] = {
+        obj_instance = instancias[name]
+        self.por_tipo[tipo][name] = {
             "nombre": obj_instance.nombre,
             "altura": self._obtener_altura(obj_instance),
-            "valores": n_list
+            "valores": obj_instance.convertir_a_dict()
         }
         return True
 
-    def bABB_convert(self, name):
-        if not any(k_name == name for k_name in self.conv_origin.binario_ABB.keys()):
-            return False
+    def guardar(self, tipo):
+        for nombre in list(self.conv_origin.por_tipo[tipo].keys()):
+            self.convertir(tipo, nombre)
 
-        obj_instance = self.conv_origin.binario_ABB[name]
-        n_list = obj_instance.convertir_a_dict()
-
-        self.binario_ABB[name] = {
-            "nombre": obj_instance.nombre,
-            "altura": self._obtener_altura(obj_instance),
-            "valores": n_list
-        }
-        return True
-
-    def bAVB_convert(self, name):
-        if not any(k_name == name for k_name in self.conv_origin.binario_AVB.keys()):
-            return False
-
-        obj_instance = self.conv_origin.binario_AVB[name]
-        n_list = obj_instance.convertir_a_dict()
-
-        self.binario_AVB[name] = {
-            "nombre": obj_instance.nombre,
-            "altura": self._obtener_altura(obj_instance),
-            "valores": n_list
-        }
-        return True
-
-
-    def bn_save(self):
-        for bn_tree in self.conv_origin.binario_n.keys():
-            self.bn_convert(bn_tree)
-
-        with open('binario_simple.json', 'w', encoding='utf-8') as c:
-            json.dump(self.binario_n, c, ensure_ascii=False, indent=4)
-        return True
-
-
-    def bABB_save(self):
-        for bABB_tree in self.conv_origin.binario_ABB.keys():
-            self.bABB_convert(bABB_tree)
-
-        with open('binario_busqueda.json', 'w', encoding='utf-8') as c:
-            json.dump(self.binario_ABB, c, ensure_ascii=False, indent=4)
-        return True
-
-
-    def bAVB_save(self):
-        for bAVB_tree in self.conv_origin.binario_AVB.keys():
-            self.bAVB_convert(bAVB_tree)
-
-        with open('binario_balanceado.json', 'w', encoding='utf-8') as c:
-            json.dump(self.binario_AVB, c, ensure_ascii=False, indent=4)
+        with open(TIPOS[tipo].archivo, 'w', encoding='utf-8') as c:
+            json.dump(self.por_tipo[tipo], c, ensure_ascii=False, indent=4)
         return True
 
     def full_save(self):
-        self.bn_save()
-        self.bABB_save()
-        self.bAVB_save()
-
+        for tipo in TIPOS:
+            self.guardar(tipo)
 
     def load(self):
-        with open('binario_simple.json', 'r', encoding='utf-8') as c:
-            self.binario_n = json.load(c)
-
-        with open('binario_busqueda.json', 'r', encoding='utf-8') as c:
-            self.binario_ABB = json.load(c)
-
-        with open('binario_balanceado.json', 'r', encoding='utf-8') as c:
-            self.binario_AVB = json.load(c)
-
+        for tipo, spec in TIPOS.items():
+            with open(spec.archivo, 'r', encoding='utf-8') as c:
+                self.por_tipo[tipo].clear()
+                self.por_tipo[tipo].update(json.load(c))
 
 
 class ArbolesConv:
@@ -130,7 +80,11 @@ class ArbolesConv:
         self.binario_n = {}
         self.binario_ABB = {}
         self.binario_AVB = {}
-
+        self.por_tipo = {
+            SIMPLE: self.binario_n,
+            BUSQUEDA: self.binario_ABB,
+            AVL: self.binario_AVB,
+        }
 
     def _extraer_valores(self, raw_tree):
         if not raw_tree:
@@ -141,26 +95,18 @@ class ArbolesConv:
             return []
 
         if isinstance(valores, dict):
-            clean_values = []
-            for nodo in valores.values():
-                if isinstance(nodo, dict) and "val" in nodo:
-                    clean_values.append(nodo["val"])
-                elif nodo is not None:
-                    clean_values.append(nodo)
-            return clean_values
+            valores = list(valores.values())
 
-        if isinstance(valores, list):
-            clean_values = []
-            for nodo in valores:
-                if isinstance(nodo, dict) and "val" in nodo:
-                    clean_values.append(nodo["val"])
-                elif nodo is None:
-                    clean_values.append(None)
-                else:
-                    clean_values.append(nodo)
-            return clean_values
+        if not isinstance(valores, list):
+            return []
 
-        return []
+        clean_values = []
+        for nodo in valores:
+            if isinstance(nodo, dict):
+                clean_values.append(nodo["val"] if "val" in nodo else None)
+            else:
+                clean_values.append(nodo)
+        return clean_values
 
     def _crear_nodo(self, item, node_class):
         if item is None:
@@ -191,85 +137,50 @@ class ArbolesConv:
                 nodo.der = nodos[hijo_der]
 
         tree_instance.raiz = nodos[0]
-        if hasattr(tree_instance, "recalcular_metadata"):
-            tree_instance.recalcular_metadata()
+        tree_instance.recalcular_metadata()
         return tree_instance
 
-    def _convertir_arbol(self, raw_dict, name, tree_class, node_class):
-        if not any(k_name == name for k_name in raw_dict.keys()):
-            return False
-
-        raw_tree = raw_dict[name]
-        tree_instance = tree_class(raw_tree.get("nombre", name))
-        niveles = self._extraer_valores(raw_tree)
-        return self._reconstruir_desde_niveles(tree_instance, niveles, node_class)
-
-    def _search_en_dicts(self, local_dict, raw_dict, name, convert_method):
-        if name in local_dict:
-            return local_dict[name]
-
-        if raw_dict is None:
-            return False
-
+    def convertir(self, tipo, name):
+        raw_dict = self.raw_origin.por_tipo[tipo]
         if name not in raw_dict:
             return False
 
-        convertido = convert_method(name)
-        if not convertido:
+        spec = TIPOS[tipo]
+        raw_tree = raw_dict[name]
+        tree_instance = spec.arbol_clase(raw_tree.get("nombre", name))
+        niveles = self._extraer_valores(raw_tree)
+
+        self.por_tipo[tipo][name] = self._reconstruir_desde_niveles(
+            tree_instance, niveles, spec.nodo_clase
+        )
+        return True
+
+    def dump(self, tipo):
+        for nombre in list(self.raw_origin.por_tipo[tipo].keys()):
+            self.convertir(tipo, nombre)
+        return True
+
+    def full_dump(self):
+        for tipo in TIPOS:
+            self.dump(tipo)
+
+    def search(self, tipo, name):
+        local_dict = self.por_tipo[tipo]
+        if name in local_dict:
+            return local_dict[name]
+
+        if self.raw_origin is None:
+            return False
+
+        if not self.convertir(tipo, name):
             return False
 
         return local_dict.get(name, False)
 
-    def bn_convert(self, name):
-        tree_instance = self._convertir_arbol(self.raw_origin.binario_n, name, ArbolSimple, NodoSimple)
-        if tree_instance is False:
-            return False
-
-        self.binario_n[name] = tree_instance
-        return True
-
-    def bABB_convert(self, name):
-        tree_instance = self._convertir_arbol(self.raw_origin.binario_ABB, name, ArbolBusqueda, NodoBusqueda)
-        if tree_instance is False:
-            return False
-
-        self.binario_ABB[name] = tree_instance
-        return True
-
-    def bAVB_convert(self, name):
-        tree_instance = self._convertir_arbol(self.raw_origin.binario_AVB, name, ArbolAVL, NodoAVL)
-        if tree_instance is False:
-            return False
-
-        self.binario_AVB[name] = tree_instance
-        return True
-
-    def bn_dump(self):
-        for bn_tree in self.raw_origin.binario_n.keys():
-            self.bn_convert(bn_tree)
-        return True
-
-    def bABB_dump(self):
-        for bABB_tree in self.raw_origin.binario_ABB.keys():
-            self.bABB_convert(bABB_tree)
-        return True
-
-    def bAVB_dump(self):
-        for bAVB_tree in self.raw_origin.binario_AVB.keys():
-            self.bAVB_convert(bAVB_tree)
-        return True
-
-    def bn_search(self, name):
-        raw_dict = self.raw_origin.binario_n if self.raw_origin else None
-        return self._search_en_dicts(self.binario_n, raw_dict, name, self.bn_convert)
-
-    def bABB_search(self, name):
-        raw_dict = self.raw_origin.binario_ABB if self.raw_origin else None
-        return self._search_en_dicts(self.binario_ABB, raw_dict, name, self.bABB_convert)
-
-    def bAVB_search(self, name):
-        raw_dict = self.raw_origin.binario_AVB if self.raw_origin else None
-        return self._search_en_dicts(self.binario_AVB, raw_dict, name, self.bAVB_convert)
+    def registrar(self, tipo, arbol):
+        """Guarda una instancia recién creada en el caché local."""
+        self.por_tipo[tipo][arbol.nombre] = arbol
+        return arbol
 
 
 """
